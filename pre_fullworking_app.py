@@ -12,7 +12,8 @@ USERNAME = "admin"
 PASSWORD = "letmein123"  # Change this to your preferred password
 
 # ✅ Initialize OpenAI
-client = OpenAI(api_key="MY_API_KEY")  # Replace with your real key
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+  # Replace with your real key
 
 # Extract text from uploaded resume
 def extract_text(file_path):
