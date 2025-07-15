@@ -155,4 +155,9 @@ with gr.Blocks(title="🔐 Secure Resume App") as app:
     ])
     feedback_btn.click(get_audio_feedback, [audio_input, question_dropdown], feedback_out)
 
-app.launch()
+if __name__ == "__main__":
+    print("✅ Launching app...")
+    app.queue().launch(
+        server_name="0.0.0.0",
+        server_port=int(os.environ.get("PORT", 8080))
+    )
