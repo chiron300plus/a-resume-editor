@@ -1,0 +1,11 @@
+{
+  "build": {
+    "env": {
+      "PYTHONUNBUFFERED": "1"
+    },
+    "command": "pip install -r requirements.txt"
+  },
+  "start": {
+    "command": "python pre_fullworking_app.py"
+  }
+}
