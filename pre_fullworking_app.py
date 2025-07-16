@@ -26,23 +26,13 @@ def extract_text(file_path):
             return f.read()
     return "❌ Unsupported file type."
 
-# ✅ Resume Generator from Personal Info
-def generate_resume_from_scratch(job_description, full_name, email, phone, location, education, experience, skills):
+def generate_resume_from_scratch(job_description):
     prompt = f"""
-You are a professional resume writer. Create a resume using the personal details below:
+You are a professional resume writer. Write a resume from scratch for someone applying to this job:
+"{job_description}"
 
-Full Name: {full_name}
-Email: {email}
-Phone: {phone}
-Location: {location}
-Education: {education}
-Experience: {experience}
-Skills: {skills}
-
-Target Job Description: {job_description}
-
-Format the resume clearly with proper sections and highlight strengths for this job.
-Only return the full formatted resume text.
+Format it clearly with sections like Summary, Experience, Education, Skills, etc.
+Respond with only the full formatted resume.
 """
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -51,22 +41,15 @@ Only return the full formatted resume text.
     )
     resume_text = response.choices[0].message.content
 
-    filename = f"Generated_Resume_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-    doc = Document()
-    for line in resume_text.splitlines():
-        doc.add_paragraph(line)
-    doc.save(filename)
-
     return (
         "📝 Grammar: 10/10", "✅ Auto-generated resume.", "", "", "",
-        filename, "", resume_text, "", []
+        None, "", resume_text, "", []
     )
 
-# ✅ Upload Review or Auto-Generate
-def get_resume_feedback_and_rewrite(file_path, job_description, full_name, email, phone, location, education, experience, skills):
+def get_resume_feedback_and_rewrite(file_path, job_description):
     try:
         if not file_path:
-            return generate_resume_from_scratch(job_description, full_name, email, phone, location, education, experience, skills)
+            return generate_resume_from_scratch(job_description)
 
         resume_text = extract_text(file_path)
         prompt = f"""
@@ -81,7 +64,7 @@ You are a professional resume coach. Review the resume below and return your res
   "mock_interview_questions": ["..."]
 }}
 Resume: {resume_text}
-Target Job or Description: {job_description}
+Target Job or Description: {job_description if job_description else "N/A"}
 """
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -104,15 +87,20 @@ Target Job or Description: {job_description}
         interview_questions = "\n- " + "\n- ".join(data["mock_interview_questions"])
         question_list = data["mock_interview_questions"]
 
-        doc = Document()
-        for line in rewritten_resume_text.splitlines():
-            doc.add_paragraph(line)
-        filename = f"Rewritten_Resume_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-        doc.save(filename)
-
-        return scores, suggestions, summary, bullet, keywords, filename, resume_text, rewritten_resume_text, interview_questions, question_list
+        return scores, suggestions, summary, bullet, keywords, None, resume_text, rewritten_resume_text, interview_questions, question_list
     except Exception as e:
         return [f"❌ Error: {str(e)}"] * 5 + [None, "", "", "", []]
+
+def save_final_resume(edited_text):
+    try:
+        doc = Document()
+        for line in edited_text.splitlines():
+            doc.add_paragraph(line)
+        filename = f"Final_Edited_Resume_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+        doc.save(filename)
+        return filename
+    except Exception as e:
+        return f"❌ Error saving final resume: {e}"
 
 def get_audio_feedback(audio_path, selected_question):
     try:
@@ -142,7 +130,6 @@ def check_login(username, password):
     else:
         return gr.update(), gr.update(visible=False), "❌ Incorrect username or password."
 
-# ✅ Gradio App UI
 with gr.Blocks(title="🔐 Secure Resume App") as app:
     with gr.Column(visible=True) as login_section:
         gr.Markdown("### 🔐 Login to Access the Resume Tool")
@@ -152,22 +139,11 @@ with gr.Blocks(title="🔐 Secure Resume App") as app:
         login_error = gr.Textbox(label="", interactive=False)
 
     with gr.Column(visible=False) as main_app:
-        gr.Markdown("## 📄 Upload resume OR generate one from scratch by filling below.")
+        gr.Markdown("## 📄 Upload your resume OR generate one from scratch by entering a job description below.")
         with gr.Row():
             resume_file = gr.File(label="📄 Upload Resume (.pdf, .docx, .txt)", type="filepath")
-            job_input = gr.Textbox(label="📋 Job Description or Target Job", lines=4)
-
-        gr.Markdown("### ✏️ Personal Info (for resume generation)")
-        full_name = gr.Textbox(label="Full Name")
-        email = gr.Textbox(label="Email")
-        phone = gr.Textbox(label="Phone")
-        location = gr.Textbox(label="Location")
-        education = gr.Textbox(label="Education Background", lines=2)
-        experience = gr.Textbox(label="Work Experience Summary", lines=2)
-        skills = gr.Textbox(label="Skills (comma-separated)")
-
-        submit = gr.Button("🧠 Analyze / Generate Resume")
-
+            job_input = gr.Textbox(label="📋 Job Title or Full Job Description", lines=4)
+        submit = gr.Button("🧠 Analyze or Generate Resume")
         with gr.Row():
             scores_out = gr.Textbox(label="📊 Scores")
             suggestions_out = gr.Textbox(label="🛠 Suggestions")
@@ -179,7 +155,8 @@ with gr.Blocks(title="🔐 Secure Resume App") as app:
         gr.Markdown("## 🆚 Resume Comparison")
         with gr.Row():
             original_out = gr.Textbox(label="📄 Original Resume", lines=20)
-            rewritten_out = gr.Textbox(label="✍️ Rewritten Resume", lines=20)
+            rewritten_out = gr.Textbox(label="✍️ Rewritten Resume (Editable)", lines=20, interactive=True)
+        generate_final_btn = gr.Button("💾 Save Final Resume")
         gr.Markdown("## 🎤 Mock Interview Questions")
         interview_out = gr.Textbox(label="Interview Questions", lines=10)
         gr.Markdown("## 🎙️ Practice Interview Responses")
@@ -190,13 +167,12 @@ with gr.Blocks(title="🔐 Secure Resume App") as app:
         feedback_out = gr.Textbox(label="🧠 GPT Feedback")
 
     login_btn.click(check_login, [username_input, password_input], [login_section, main_app, login_error])
-    submit.click(get_resume_feedback_and_rewrite, [
-        resume_file, job_input, full_name, email, phone, location, education, experience, skills
-    ], [
+    submit.click(get_resume_feedback_and_rewrite, [resume_file, job_input], [
         scores_out, suggestions_out, summary_out, bullet_out,
         keywords_out, file_out, original_out, rewritten_out,
         interview_out, question_dropdown
     ])
+    generate_final_btn.click(save_final_resume, [rewritten_out], file_out)
     feedback_btn.click(get_audio_feedback, [audio_input, question_dropdown], feedback_out)
 
 if __name__ == "__main__":
