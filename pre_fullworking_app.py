@@ -152,19 +152,27 @@ with gr.Blocks(title="🔐 Secure Resume App") as app:
         login_error = gr.Textbox(label="", interactive=False)
 
     with gr.Column(visible=False) as main_app:
-        gr.Markdown("## 📄 Upload resume OR generate one from scratch by filling below.")
+        gr.Markdown("""
+## 📄 Upload Resume OR ✍️ Generate from Scratch
+
+You can either:
+- 📤 Upload your existing resume (`.pdf`, `.docx`, or `.txt`)  
+**OR**
+- 🧑‍💼 Fill in your info & 🎯 Job Target below to auto-generate a professional resume!
+""")
+
         with gr.Row():
             resume_file = gr.File(label="📄 Upload Resume (.pdf, .docx, .txt)", type="filepath")
             job_input = gr.Textbox(label="📋 Job Description or Target Job", lines=4)
 
-        gr.Markdown("### ✏️ Personal Info (for resume generation)")
-        full_name = gr.Textbox(label="Full Name")
-        email = gr.Textbox(label="Email")
-        phone = gr.Textbox(label="Phone")
-        location = gr.Textbox(label="Location")
-        education = gr.Textbox(label="Education Background", lines=2)
-        experience = gr.Textbox(label="Work Experience Summary", lines=2)
-        skills = gr.Textbox(label="Skills (comma-separated)")
+        gr.Markdown("### 🧑‍💼️ Personal Info (for resume generation)")
+        full_name = gr.Textbox(label="👤 Full Name")
+        email = gr.Textbox(label="📧 Email")
+        phone = gr.Textbox(label="📱 Phone Number")
+        location = gr.Textbox(label="🌍 Location")
+        education = gr.Textbox(label="🎓 Education", lines=2)
+        experience = gr.Textbox(label="💼 Experience", lines=2)
+        skills = gr.Textbox(label="🛠 Skills (comma-separated)")
 
         submit = gr.Button("🧠 Analyze / Generate Resume")
 
