@@ -153,7 +153,7 @@ with gr.Blocks(
     # Branding row
     with gr.Row():
         with gr.Column(scale=0.2):
-            gr.Image(value="Aipply_logo.png", elem_id="logo", show_label=False, show_download_button=False)
+            gr.Image(value="C:\Users\michael\AppData\Local\Programs\Python\Working_python\Aipply_logo.png", elem_id="logo", show_label=False, show_download_button=False)
         with gr.Column():
             gr.Markdown(
                 """
