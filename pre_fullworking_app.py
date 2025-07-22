@@ -141,9 +141,30 @@ def check_login(username, password):
         return gr.update(visible=False), gr.update(visible=True), ""
     else:
         return gr.update(), gr.update(visible=False), "❌ Incorrect username or password."
+# ✅ Gradio App UI with AIpply Branding
+with gr.Blocks(
+    title="🔐 Secure Resume App",
+    css="""
+        #logo img { max-width: 120px; margin-top: 10px; }
+        body { background-color: #f7f9fc; }
+    """
+) as app:
+    
+    # Branding row
+    with gr.Row():
+        with gr.Column(scale=0.2):
+            gr.Image(value="Aipply_logo.png", elem_id="logo", show_label=False, show_download_button=False)
+        with gr.Column():
+            gr.Markdown(
+                """
+                # 🤖 Welcome to **AIpply**
+                > Your AI-powered Resume Assistant 🚀  
+                Upload your resume or generate one from scratch with personalized feedback and interview prep!
+                """,
+                elem_id="header"
+            )
 
-# ✅ Gradio App UI
-with gr.Blocks(title="🔐 Secure Resume App") as app:
+    # Login Section
     with gr.Column(visible=True) as login_section:
         gr.Markdown("### 🔐 Login to Access the Resume Tool")
         username_input = gr.Textbox(label="Username")
@@ -151,9 +172,12 @@ with gr.Blocks(title="🔐 Secure Resume App") as app:
         login_btn = gr.Button("🔓 Login")
         login_error = gr.Textbox(label="", interactive=False)
 
+    # Main App Section
     with gr.Column(visible=False) as main_app:
         gr.Markdown("""
 ## 📄 Upload Resume OR ✍️ Generate from Scratch
+""")
+
 
 You can either:
 - 📤 Upload your existing resume (`.pdf`, `.docx`, or `.txt`)  
