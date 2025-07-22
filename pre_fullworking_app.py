@@ -143,7 +143,7 @@ def check_login(username, password):
         return gr.update(), gr.update(visible=False), "❌ Incorrect username or password."
 # ✅ Gradio App UI with AIpply Branding
 with gr.Blocks(
-    title="🔐 Secure Resume App",
+    title="A-resume-editor-Web Service",
     css="""
         #logo img { max-width: 120px; margin-top: 10px; }
         body { background-color: #f7f9fc; }
