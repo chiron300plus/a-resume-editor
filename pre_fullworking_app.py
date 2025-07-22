@@ -175,7 +175,7 @@ with gr.Blocks(
     # Main App Section
     with gr.Column(visible=False) as main_app:
         gr.Markdown("""
-## 📄 Upload Resume OR ✍️ Generate from Scratch
+##  Upload Resume OR ✍️ Generate from Scratch
 """)
 
 
