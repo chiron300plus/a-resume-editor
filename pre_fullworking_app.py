@@ -176,8 +176,6 @@ with gr.Blocks(
     with gr.Column(visible=False) as main_app:
         gr.Markdown("""
 ##  Upload Resume OR ✍️ Generate from Scratch
-""")
-
 
 You can either:
 - 📤 Upload your existing resume (`.pdf`, `.docx`, or `.txt`)  
