@@ -136,6 +136,37 @@ Give constructive feedback on content, clarity, and relevance. Be professional a
     except Exception as e:
         return f"❌ Error: {e}"
 
+def generate_cover_letter(full_name, email, phone, location, education, experience, skills, job_description):
+    prompt = f"""
+You are a professional cover letter writer. Create a compelling cover letter for a job application using the details below:
+
+Full Name: {full_name}
+Email: {email}
+Phone: {phone}
+Location: {location}
+Education: {education}
+Experience: {experience}
+Skills: {skills}
+Job Description: {job_description}
+
+Format the letter professionally, address it properly, and keep it concise.
+"""
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7
+    )
+    letter = response.choices[0].message.content
+
+    filename = f"Cover_Letter_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+    doc = Document()
+    for line in letter.splitlines():
+        doc.add_paragraph(line)
+    doc.save(filename)
+
+    return letter, filename
+
+
 def check_login(username, password):
     if username == USERNAME and password == PASSWORD:
         return gr.update(visible=False), gr.update(visible=True), ""
@@ -213,6 +244,11 @@ You can either:
         gr.Markdown("## 🎤 Mock Interview Questions")
         interview_out = gr.Textbox(label="Interview Questions", lines=10)
         gr.Markdown("## 🎙️ Practice Interview Responses")
+        gr.Markdown("## 📬 Cover Letter Generator")
+        cover_letter_btn = gr.Button("✉️ Generate Cover Letter")
+        cover_letter_text = gr.Textbox(label="📄 AI-Generated Cover Letter", lines=12)
+        cover_letter_file = gr.File(label="⬇️ Download Cover Letter (.docx)")
+
         with gr.Row():
             question_dropdown = gr.Dropdown(label="🧠 Select a Mock Question", choices=[], interactive=True)
             audio_input = gr.Audio(sources="microphone", type="filepath", label="🎤 Record Your Answer")
@@ -228,6 +264,13 @@ You can either:
         interview_out, question_dropdown
     ])
     feedback_btn.click(get_audio_feedback, [audio_input, question_dropdown], feedback_out)
+    
+        cover_letter_btn.click(
+        generate_cover_letter,
+        inputs=[full_name, email, phone, location, education, experience, skills, job_input],
+        outputs=[cover_letter_text, cover_letter_file]
+    )
+
 
 if __name__ == "__main__":
     print("✅ Launching app...")
