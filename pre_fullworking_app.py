@@ -246,7 +246,14 @@ You can either:
         gr.Markdown("## 🎙️ Practice Interview Responses")
         gr.Markdown("## 📬 Cover Letter Generator")
         cover_letter_btn = gr.Button("✉️ Generate Cover Letter")
-        cover_letter_text = gr.Textbox(label="📄 AI-Generated Cover Letter", lines=12)
+        cover_letter_text = gr.Textbox(
+    label="📄 AI-Generated Cover Letter",
+    lines=15,
+    max_lines=15,
+    show_copy_button=True,
+    interactive=True
+)
+
         cover_letter_file = gr.File(label="⬇️ Download Cover Letter (.docx)")
 
         with gr.Row():
