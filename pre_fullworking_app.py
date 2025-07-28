@@ -265,7 +265,7 @@ You can either:
     ])
     feedback_btn.click(get_audio_feedback, [audio_input, question_dropdown], feedback_out)
     
-        cover_letter_btn.click(
+    cover_letter_btn.click(
         generate_cover_letter,
         inputs=[full_name, email, phone, location, education, experience, skills, job_input],
         outputs=[cover_letter_text, cover_letter_file]
