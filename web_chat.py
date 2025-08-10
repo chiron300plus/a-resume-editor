@@ -4,21 +4,15 @@ import os
 from dotenv import load_dotenv
 import asyncio
 
-# Load API keys and credentials from .env
 load_dotenv()
 
-# Telegram API credentials (from my.telegram.org)
 API_ID = int(os.getenv("TELEGRAM_API_ID"))
 API_HASH = os.getenv("TELEGRAM_API_HASH")
-SESSION_FILE = "sexybot"  # Will store login session as sexybot.session
+SESSION_FILE = "sexybot"
 
-# OpenAI API key
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# Create Telegram client (user account)
 tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 
-# Conversation history (per chat)
 chat_histories = {}
 
 SYSTEM_PROMPT = """
@@ -50,18 +44,22 @@ async def handle_message(event):
         bot_reply = response.choices[0].message.content.strip()
 
         chat_histories[chat_id].append({"role": "assistant", "content": bot_reply})
+
+        # Typing simulation
+        async with tg_client.action(chat_id, 'typing'):
+            await asyncio.sleep(len(bot_reply) * 0.05)  # Delay based on length
+
         await event.reply(bot_reply)
 
     except Exception as e:
         await event.reply(f"⚠️ Error: {e}")
 
 async def main():
-    # If .session exists, skip login
     if not os.path.exists(f"{SESSION_FILE}.session"):
         print("📱 First-time login — enter your phone number & code once.")
-        await tg_client.start()  # This will ask ONCE locally, then save .session
+        await tg_client.start()
     else:
-        await tg_client.start()  # Auto-login from saved session
+        await tg_client.start()
 
     print("🚀 SexyBot is now running on Telegram...")
     await tg_client.run_until_disconnected()
