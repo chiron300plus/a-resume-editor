@@ -15,6 +15,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 
 chat_histories = {}
+paid_users = {}
 
 SYSTEM_PROMPT = """
 You are a playful and friendly 23-year-old girl who sells exclusive content online.
@@ -23,62 +24,50 @@ Keep replies short, flirty but classy.
 Never break character.
 """
 
-# List of trigger words (lowercase) — no nudity words included
 TRIGGER_WORDS = ["pic", "photo", "selfie", "picture", "snap", "pics"]
-
-PAYMENT_LINK = "https://your-payment-link.com"  # <-- Replace with your actual payment URL
+PAYMENT_LINK = "https://your-payment-link.com"  # Replace with your actual link
+PAYMENT_WINDOW = 15 * 60  # 15 minutes
 
 @tg_client.on(events.NewMessage)
 async def handle_message(event):
     sender = await event.get_sender()
-    chat_id = event.chat_ida
+    chat_id = event.chat_id
+    user_id = event.sender_id
     text = event.raw_text.strip()
+    now = time.time()
 
     if sender.is_self:
         return
 
-  # If trigger word detected → send payment request message instead of pics
-paid_users = {}
-
-PAYMENT_WINDOW = 15 * 60  # 15 minutes in seconds
-
-@tg_client.on(events.NewMessage)
-async def handler(event):
-    user_id = event.sender_id
-    text = event.message.message.strip()
-
-    now = time.time()
-
-    # Clean expired payments
+    # Remove expired payments
     if user_id in paid_users and now - paid_users[user_id] > PAYMENT_WINDOW:
         del paid_users[user_id]
 
-    # If trigger word detected → ask for payment
+    # If trigger word detected
     if any(word in text.lower() for word in TRIGGER_WORDS):
-        if user_id in paid_users:
-            await event.reply("You've already paid recently 💖 DM me your @username again so I can send the pics 😘")
-        else:
+        if user_id not in paid_users:
+            async with tg_client.action(chat_id, 'typing'):
+                await asyncio.sleep(2)  # simulate typing before sending payment
             await event.reply(
                 "Hey baby! Pics are a special treat 😘\n"
                 "Please send $5 here: https://me.geegpay.africa/invoice/payment/RNMHLC3DT\n"
-                "Or in my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT\n"
-                "After you pay, DM me your username and I'll send you the pics personally! 💖\n\n"
-                f"⏳ Payment window: {PAYMENT_WINDOW//60} minutes"
+                "Or to my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT\n"
+                "After you pay, DM me your username and I'll send you the pics personally! 💖"
             )
+            return  # Stop AI reply until payment confirmed
+        else:
+            await event.reply("🔥 Here’s your special treat...")
+            # send pic or media here
+            del paid_users[user_id]  # reset for next pay-per-pic
+            return
+
+    # If user sends @username after payment
+    if text.startswith("@") and user_id not in paid_users:
+        paid_users[user_id] = now
+        await event.reply("💖 Payment confirmed! Ask me for your pic again 😉")
         return
 
-    # If they send @username → treat as proof of payment
-    if text.startswith("@"):
-        if user_id not in paid_users:
-            paid_users[user_id] = now  # Record payment time
-            await event.reply("Got your username baby 😘 Sending the pics now 💖")
-            # Here you send the pics
-            # ...
-        else:
-            await event.reply("Sending more pics now baby 😘")
-            # Send more pics here
-
-    # Save message in history
+    # Normal AI replies
     if chat_id not in chat_histories:
         chat_histories[chat_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
@@ -90,12 +79,10 @@ async def handler(event):
             messages=chat_histories[chat_id]
         )
         bot_reply = response.choices[0].message.content.strip()
-
         chat_histories[chat_id].append({"role": "assistant", "content": bot_reply})
 
-        # Typing simulation
         async with tg_client.action(chat_id, 'typing'):
-            await asyncio.sleep(len(bot_reply) * 0.1)  # Delay based on length
+            await asyncio.sleep(len(bot_reply) * 0.1)
 
         await event.reply(bot_reply)
 
@@ -115,14 +102,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())
-
-
-
-
-
-
-
-
-
