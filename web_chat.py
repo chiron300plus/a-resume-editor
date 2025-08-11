@@ -40,7 +40,8 @@ async def handle_message(event):
     if any(word in text.lower() for word in TRIGGER_WORDS):
         await event.reply(
             f"Hey babe! Pics are a special treat 😘\n"
-            f"Please send $5 here: {PAYMENT_LINK}\n"
+            f"Please send $5 here: {https://me.geegpay.africa/invoice/payment/RNMHLC3DT}\n"
+            'Or in my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT'
             "After you pay, DM me your username and I'll send you the pics personally! 💖"
         )
         return
@@ -84,3 +85,4 @@ async def main():
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
+
