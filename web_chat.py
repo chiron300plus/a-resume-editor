@@ -3,6 +3,7 @@ from openai import OpenAI
 import os
 from dotenv import load_dotenv
 import asyncio
+import time
 
 load_dotenv()
 
@@ -37,27 +38,45 @@ async def handle_message(event):
         return
 
   # If trigger word detected → send payment request message instead of pics
-paid_users = set()
+paid_users = {}
 
-if any(word in text.lower() for word in TRIGGER_WORDS):
-    if user_id in paid_users:
-        return  # Don't reply if they've already paid
-    # Send payment link with delay
-    async with tg_client.action(chat_id, 'typing'):
-        await asyncio.sleep(3)
-        await event.reply(
-            f"Hey baby! Pics are a special treat 😘\n"
-            f"Please send $5 here: https://me.geegpay.africa/invoice/payment/RNMHLC3DT\n"
-            'Or my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT \n'
-            "After you pay, DM me your username and I'll send you the pics personally! 💖"
-        )
-    return
+PAYMENT_WINDOW = 15 * 60  # 15 minutes in seconds
 
-# When they send their username after paying
-if text.startswith("@"):
-    paid_users.add(user_id)
-    await event.reply("Got your username baby 😘 I'll send the pics now 💖")
+@tg_client.on(events.NewMessage)
+async def handler(event):
+    user_id = event.sender_id
+    text = event.message.message.strip()
 
+    now = time.time()
+
+    # Clean expired payments
+    if user_id in paid_users and now - paid_users[user_id] > PAYMENT_WINDOW:
+        del paid_users[user_id]
+
+    # If trigger word detected → ask for payment
+    if any(word in text.lower() for word in TRIGGER_WORDS):
+        if user_id in paid_users:
+            await event.reply("You've already paid recently 💖 DM me your @username again so I can send the pics 😘")
+        else:
+            await event.reply(
+                "Hey baby! Pics are a special treat 😘\n"
+                "Please send $5 here: https://me.geegpay.africa/invoice/payment/RNMHLC3DT\n"
+                "Or in my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT\n"
+                "After you pay, DM me your username and I'll send you the pics personally! 💖\n\n"
+                f"⏳ Payment window: {PAYMENT_WINDOW//60} minutes"
+            )
+        return
+
+    # If they send @username → treat as proof of payment
+    if text.startswith("@"):
+        if user_id not in paid_users:
+            paid_users[user_id] = now  # Record payment time
+            await event.reply("Got your username baby 😘 Sending the pics now 💖")
+            # Here you send the pics
+            # ...
+        else:
+            await event.reply("Sending more pics now baby 😘")
+            # Send more pics here
 
     # Save message in history
     if chat_id not in chat_histories:
@@ -98,6 +117,7 @@ async def main():
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
+
 
 
 
