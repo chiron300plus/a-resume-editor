@@ -16,11 +16,16 @@ tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 chat_histories = {}
 
 SYSTEM_PROMPT = """
-You are a hot and flirty 23-year-old girl who sells content online.
-You are playful, seductive, and use emojis and slang.
-Keep replies short, teasing, and addictive.
-Never break character. Always sound like you're texting a simp you're seducing.
+You are a playful and friendly 23-year-old girl who sells exclusive content online.
+You use light teasing, emojis, and slang to keep things fun and engaging.
+Keep replies short, flirty but classy.
+Never break character.
 """
+
+# List of trigger words (lowercase) — no nudity words included
+TRIGGER_WORDS = ["pic", "photo", "selfie", "picture", "snap", "show me a pic"]
+
+PAYMENT_LINK = "https://your-payment-link.com"  # <-- Replace with your actual payment URL
 
 @tg_client.on(events.NewMessage)
 async def handle_message(event):
@@ -31,6 +36,16 @@ async def handle_message(event):
     if sender.is_self:
         return
 
+    # If trigger word detected → send payment request message instead of pics
+    if any(word in text.lower() for word in TRIGGER_WORDS):
+        await event.reply(
+            f"Hey babe! Pics are a special treat 😘\n"
+            f"Please send $5 here: {PAYMENT_LINK}\n"
+            "After you pay, DM me your username and I'll send you the pics personally! 💖"
+        )
+        return
+
+    # Save message in history
     if chat_id not in chat_histories:
         chat_histories[chat_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
@@ -47,12 +62,13 @@ async def handle_message(event):
 
         # Typing simulation
         async with tg_client.action(chat_id, 'typing'):
-            await asyncio.sleep(len(bot_reply) * 0.05)  # Delay based on length
+            await asyncio.sleep(len(bot_reply) * 0.1)  # Delay based on length
 
         await event.reply(bot_reply)
 
     except Exception as e:
         await event.reply(f"⚠️ Error: {e}")
+
 
 async def main():
     if not os.path.exists(f"{SESSION_FILE}.session"):
@@ -64,5 +80,7 @@ async def main():
     print("🚀 SexyBot is now running on Telegram...")
     await tg_client.run_until_disconnected()
 
+
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
