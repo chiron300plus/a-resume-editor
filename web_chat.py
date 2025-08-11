@@ -23,28 +23,32 @@ Never break character.
 """
 
 # List of trigger words (lowercase) — no nudity words included
-TRIGGER_WORDS = ["pic", "photo", "selfie", "picture", "snap", "show me a pic"]
+TRIGGER_WORDS = ["pic", "photo", "selfie", "picture", "snap", "pics"]
 
 PAYMENT_LINK = "https://your-payment-link.com"  # <-- Replace with your actual payment URL
 
 @tg_client.on(events.NewMessage)
 async def handle_message(event):
     sender = await event.get_sender()
-    chat_id = event.chat_id
+    chat_id = event.chat_ida
     text = event.raw_text.strip()
 
     if sender.is_self:
         return
 
-    # If trigger word detected → send payment request message instead of pics
-    if any(word in text.lower() for word in TRIGGER_WORDS):
-        await event.reply(
-            f"Hey baby! Pics are a special treat 😘\n"
-            f"Please send $5 here: https://me.geegpay.africa/invoice/payment/RNMHLC3DT\n"
-            ' Or in my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT \n'
-            "After you pay, DM me your username and I'll send you the pics personally! 💖"
-        )
-        return
+  # If trigger word detected → send payment request message instead of pics
+if any(word in text.lower() for word in TRIGGER_WORDS):
+    payment_message = (
+        "Hey baby! Pics are a special treat 😘\n"
+        "Please send $5 here: https://me.geegpay.africa/invoice/payment/RNMHLC3DT\n"
+        "Or in my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT\n"
+        "After you pay, DM me your username and I'll send you the pics personally! 💖"
+    )
+    async with tg_client.action(chat_id, 'typing'):
+        await asyncio.sleep(len(payment_message) * 5.0)  # adjust speed if needed
+        await event.respond(payment_message)
+    return
+
 
     # Save message in history
     if chat_id not in chat_histories:
@@ -85,6 +89,7 @@ async def main():
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
+
 
 
 
