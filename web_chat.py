@@ -37,6 +37,7 @@ async def handle_message(event):
         return
 
   # If trigger word detected → send payment request message instead of pics
+# If trigger word detected → send payment request message instead of pics
 if any(word in text.lower() for word in TRIGGER_WORDS):
     payment_message = (
         "Hey baby! Pics are a special treat 😘\n"
@@ -44,10 +45,14 @@ if any(word in text.lower() for word in TRIGGER_WORDS):
         "Or in my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT\n"
         "After you pay, DM me your username and I'll send you the pics personally! 💖"
     )
-    async with tg_client.action(chat_id, 'typing'):
-        await asyncio.sleep(len(payment_message) * 5.0)  # adjust speed if needed
+
+    # Show typing animation before sending
+    async with event.client.action(event.chat_id, 'typing'):
+        await asyncio.sleep(3)  # wait 3 seconds before sending
         await event.respond(payment_message)
+
     return
+
 
 
     # Save message in history
@@ -89,6 +94,7 @@ async def main():
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
+
 
 
 
