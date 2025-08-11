@@ -37,22 +37,26 @@ async def handle_message(event):
         return
 
   # If trigger word detected → send payment request message instead of pics
-# If trigger word detected → send payment request message instead of pics
+paid_users = set()
+
 if any(word in text.lower() for word in TRIGGER_WORDS):
-    payment_message = (
-        "Hey baby! Pics are a special treat 😘\n"
-        "Please send $5 here: https://me.geegpay.africa/invoice/payment/RNMHLC3DT\n"
-        "Or in my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT\n"
-        "After you pay, DM me your username and I'll send you the pics personally! 💖"
-    )
-
-    # Show typing animation before sending
-    async with event.client.action(event.chat_id, 'typing'):
-        await asyncio.sleep(3)  # wait 3 seconds before sending
-        await event.respond(payment_message)
-
+    if user_id in paid_users:
+        return  # Don't reply if they've already paid
+    # Send payment link with delay
+    async with tg_client.action(chat_id, 'typing'):
+        await asyncio.sleep(3)
+        await event.reply(
+            f"Hey baby! Pics are a special treat 😘\n"
+            f"Please send $5 here: https://me.geegpay.africa/invoice/payment/RNMHLC3DT\n"
+            'Or my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT \n'
+            "After you pay, DM me your username and I'll send you the pics personally! 💖"
+        )
     return
 
+# When they send their username after paying
+if text.startswith("@"):
+    paid_users.add(user_id)
+    await event.reply("Got your username baby 😘 I'll send the pics now 💖")
 
 
     # Save message in history
@@ -94,6 +98,7 @@ async def main():
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
+
 
 
 
