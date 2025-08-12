@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 import asyncio
 import time
+import re
 
 load_dotenv()
 
@@ -15,7 +16,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 
 chat_histories = {}
-paid_users = {}
+user_states = {}  # user_id: {"awaiting_payment": bool, "last_payment_time": float}
 
 SYSTEM_PROMPT = """
 You are a playful and friendly 23-year-old girl who sells exclusive content online.
@@ -25,8 +26,20 @@ Never break character.
 """
 
 TRIGGER_WORDS = ["pic", "photo", "selfie", "picture", "snap", "pics"]
-PAYMENT_LINK = "https://your-payment-link.com"  # Replace with your actual link
 PAYMENT_WINDOW = 15 * 60  # 15 minutes
+
+PAYMENT_KEYWORDS = ["paid", "payment", "proof", "sent", "transaction", "invoice", "transfer"]
+
+
+def is_pic_request(message):
+    msg = message.lower()
+    return any(word in msg for word in TRIGGER_WORDS)
+
+
+def is_payment_proof(message):
+    msg = message.lower()
+    return any(keyword in msg for keyword in PAYMENT_KEYWORDS) or bool(re.search(r"\b0x[a-fA-F0-9]{40}\b", msg))
+
 
 @tg_client.on(events.NewMessage)
 async def handle_message(event):
@@ -39,32 +52,44 @@ async def handle_message(event):
     if sender.is_self:
         return
 
-    # Remove expired payments
-    if user_id in paid_users and now - paid_users[user_id] > PAYMENT_WINDOW:
-        del paid_users[user_id]
+    # Initialize user state
+    if user_id not in user_states:
+        user_states[user_id] = {"awaiting_payment": False, "last_payment_time": None}
+
+    # Remove expired payment status
+    if user_states[user_id]["last_payment_time"] and now - user_states[user_id]["last_payment_time"] > PAYMENT_WINDOW:
+        user_states[user_id]["awaiting_payment"] = False
+        user_states[user_id]["last_payment_time"] = None
 
     # If trigger word detected
-    if any(word in text.lower() for word in TRIGGER_WORDS):
-        if user_id not in paid_users:
+    if is_pic_request(text):
+        if not user_states[user_id]["last_payment_time"]:
+            user_states[user_id]["awaiting_payment"] = True
             async with tg_client.action(chat_id, 'typing'):
-                await asyncio.sleep(2)  # simulate typing before sending payment
+                await asyncio.sleep(2)
             await event.reply(
                 "Hey baby! Pics are a special treat 😘\n"
                 "Please send $5 here: https://me.geegpay.africa/invoice/payment/RNMHLC3DT\n"
                 "Or to my wallet 0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT\n"
-                "After you pay, DM me your username and I'll send you the pics personally! 💖"
+                "After you pay, just send me proof and I'll send your pics 💖"
             )
-            return  # Stop AI reply until payment confirmed
+            return
         else:
             await event.reply("🔥 Here’s your special treat...")
             # send pic or media here
-            del paid_users[user_id]  # reset for next pay-per-pic
+            user_states[user_id]["last_payment_time"] = None
             return
 
-    # If user sends @username after payment
-    if text.startswith("@") and user_id not in paid_users:
-        paid_users[user_id] = now
+    # If payment proof detected
+    if is_payment_proof(text):
+        user_states[user_id]["last_payment_time"] = now
+        user_states[user_id]["awaiting_payment"] = False
         await event.reply("💖 Payment confirmed! Ask me for your pic again 😉")
+        return
+
+    # If awaiting payment, send reminder instead of AI reply
+    if user_states[user_id]["awaiting_payment"]:
+        await event.reply("⏳ Still waiting for payment, babe 💕 Send proof when done.")
         return
 
     # Normal AI replies
