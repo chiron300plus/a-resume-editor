@@ -40,6 +40,14 @@ def is_payment_proof(message):
     msg = message.lower()
     return any(keyword in msg for keyword in PAYMENT_KEYWORDS) or bool(re.search(r"\b0x[a-fA-F0-9]{40}\b", msg))
 
+@client.on(events.NewMessage(outgoing=True))
+async def handle_outgoing_message(event):
+    if event.photo or event.video:  # You sent a pic/video
+        user_id = event.chat_id
+        if user_id in awaiting_payment and awaiting_payment[user_id]:
+            awaiting_payment[user_id] = False
+            await client.send_message(user_id, "💖 Enjoy, babe! You’re unlocked now 😉")
+
 
 @tg_client.on(events.NewMessage)
 async def handle_message(event):
@@ -128,3 +136,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
