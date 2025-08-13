@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import asyncio
 import time
 import re
+import random
 
 load_dotenv()
 
@@ -36,6 +37,24 @@ PAYMENT_KEYWORDS = ["paid", "payment", "proof", "sent", "transaction", "invoice"
 
 PAYMENT_LINK = "https://me.geegpay.africa/invoice/payment/RNMHLC3DT"
 WALLET_ADDRESS = "0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT"
+TIP_KEYWORDS = [
+    "tip", "tips", "donate", "donation", "gift", "spoil", "spoil you", 
+    "send money", "give money", "buy you", "how much", "payment", "support"
+]
+TIP_OFFER_RESPONSES = [
+    "You're making me smile so much 🥰 If you ever want to spoil me with a tip, I won’t say no 💖",
+    "I love chatting with you 😘 If you wanna send a tip, I’ll make it worth your while 😉",
+    "If you keep being this sweet, I might just have to send you something extra special. Tips always make my day 💌",
+    "A little tip from you could get you a *very* naughty surprise 😏",
+    "You’re fun to talk to 💕 Wanna keep me smiling? Here’s your chance to tip me 💖"
+]
+TIP_ACCEPT_RESPONSES = [
+    "Aww, you’re too sweet! 💕 You can send me a tip here: [YOUR_PAYMENT_LINK]",
+    "Ooo yes baby 😏 Spoil me here: [YOUR_PAYMENT_LINK] — and I’ll spoil you back 😘",
+    "That’s so kind 😍 You can tip me here: [YOUR_PAYMENT_LINK]",
+    "You just made my day 😘 Send it here: [YOUR_PAYMENT_LINK]",
+    "Mmm… spoil me and I’ll make it worth every penny 😈 [YOUR_PAYMENT_LINK]"
+]
 
 
 def save_states():
@@ -62,6 +81,21 @@ def is_pic_request(message):
 def is_payment_proof(message):
     msg = message.lower()
     return any(keyword in msg for keyword in PAYMENT_KEYWORDS) or bool(re.search(r"\b0x[a-fA-F0-9]{40}\b", msg))
+
+import random
+
+def handle_tip_logic(user_message):
+    lower_msg = user_message.lower()
+
+    # If user talks about tipping/gifting
+    if any(keyword in lower_msg for keyword in TIP_KEYWORDS):
+        return random.choice(TIP_ACCEPT_RESPONSES)
+
+    # Randomly offer tips during normal chat
+    if random.random() < 0.05:  # 5% of messages
+        return random.choice(TIP_OFFER_RESPONSES)
+
+    return None  # Let AI handle the rest
 
 
 @tg_client.on(events.NewMessage(outgoing=True))
@@ -182,3 +216,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
