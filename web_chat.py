@@ -1,12 +1,8 @@
-import json
 from telethon import TelegramClient, events
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
 import asyncio
-import time
-import re
-import random
 
 load_dotenv()
 
@@ -17,10 +13,7 @@ SESSION_FILE = "sexybot"
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 
-STATE_FILE = "user_states.json"
-
 chat_histories = {}
-user_states = {}
 
 SYSTEM_PROMPT = """
 You are a playful and friendly 23-year-old girl who sells exclusive content online.
@@ -29,170 +22,55 @@ Keep replies short, flirty but classy.
 Never break character.
 """
 
-TRIGGER_WORDS = ["pic", "photo", "selfie", "picture", "snap", "pics"]
-PAYMENT_WINDOW = 15 * 60
-COOLDOWN = 60 * 60
+# List of trigger words (lowercase) — no nudity words included
+TRIGGER_WORDS = ["pic", "photo", "selfie", "picture", "snap", "show me a pic"]
 
-PAYMENT_KEYWORDS = ["paid", "payment", "proof", "sent", "transaction", "invoice", "transfer"]
-
-PAYMENT_LINK = "https://me.geegpay.africa/invoice/payment/RNMHLC3DT"
-WALLET_ADDRESS = "0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT"
-
-TIP_KEYWORDS = [
-    "tip", "tips", "donate", "donation", "gift", "spoil", "spoil you", 
-    "send money", "give money", "buy you", "how much", "payment", "support"
-]
-TIP_OFFER_RESPONSES = [
-    "You're making me smile so much 🥰 If you ever want to spoil me with a tip, I won’t say no 💖",
-    "I love chatting with you 😘 If you wanna send a tip, I’ll make it worth your while 😉",
-    "If you keep being this sweet, I might just have to send you something extra special. Tips always make my day 💌",
-    "A little tip from you could get you a *very* naughty surprise 😏",
-    "You’re fun to talk to 💕 Wanna keep me smiling? Here’s your chance to tip me 💖"
-]
-TIP_ACCEPT_RESPONSES = [
-    "Aww, you’re too sweet! 💕 You can send me a tip here: [YOUR_PAYMENT_LINK]",
-    "Ooo yes baby 😏 Spoil me here: [YOUR_PAYMENT_LINK] — and I’ll spoil you back 😘",
-    "That’s so kind 😍 You can tip me here: [YOUR_PAYMENT_LINK]",
-    "You just made my day 😘 Send it here: [YOUR_PAYMENT_LINK]",
-    "Mmm… spoil me and I’ll make it worth every penny 😈 [YOUR_PAYMENT_LINK]"
-]
-
-MAX_HISTORY_MESSAGES = 5  # Only keep the last 5 messages per chat
-
-def trim_history(chat_id):
-    """Keep only the last N messages + system prompt to reduce token usage."""
-    if chat_id in chat_histories:
-        system_prompt = chat_histories[chat_id][0]
-        recent_messages = chat_histories[chat_id][-MAX_HISTORY_MESSAGES:]
-        chat_histories[chat_id] = [system_prompt] + recent_messages
-
-def save_states():
-    with open(STATE_FILE, "w") as f:
-        json.dump(user_states, f)
-
-def load_states():
-    global user_states
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, "r") as f:
-            user_states = json.load(f)
-            user_states = {int(k): v for k, v in user_states.items()}
-    else:
-        user_states = {}
-
-def is_pic_request(message):
-    msg = message.lower()
-    return any(word in msg for word in TRIGGER_WORDS)
-
-def is_payment_proof(message):
-    msg = message.lower()
-    return any(keyword in msg for keyword in PAYMENT_KEYWORDS) or bool(re.search(r"\b0x[a-fA-F0-9]{40}\b", msg))
-
-def handle_tip_logic(user_message):
-    lower_msg = user_message.lower()
-    if any(keyword in lower_msg for keyword in TIP_KEYWORDS):
-        return random.choice(TIP_ACCEPT_RESPONSES)
-    if random.random() < 0.05:
-        return random.choice(TIP_OFFER_RESPONSES)
-    return None
-
-@tg_client.on(events.NewMessage(outgoing=True))
-async def handle_outgoing_message(event):
-    if event.photo or event.video:
-        user_id = event.chat_id
-        if user_id in user_states and user_states[user_id].get("awaiting_payment", False):
-            user_states[user_id]["awaiting_payment"] = False
-            user_states[user_id]["last_payment_time"] = time.time()
-            save_states()
-            await tg_client.send_message(user_id, "💖 Enjoy, babe! You’re unlocked now 😉")
+PAYMENT_LINK = "https://your-payment-link.com"  # <-- Replace with your actual payment URL
 
 @tg_client.on(events.NewMessage)
 async def handle_message(event):
     sender = await event.get_sender()
     chat_id = event.chat_id
-    user_id = event.sender_id
     text = event.raw_text.strip()
-    now = time.time()
 
     if sender.is_self:
         return
 
-    if user_id not in user_states:
-        user_states[user_id] = {
-            "awaiting_payment": False,
-            "last_payment_time": None,
-            "last_reminder": None,
-        }
-
-    state = user_states[user_id]
-
-    if state["last_payment_time"] and now - state["last_payment_time"] > PAYMENT_WINDOW:
-        state["last_payment_time"] = None
-
-    if is_payment_proof(text):
-        state["awaiting_payment"] = False
-        state["last_payment_time"] = now
-        save_states()
-        await event.reply("💖 Payment confirmed! Ask me for your pic again 😉")
+    # If trigger word detected → send payment request message instead of pics
+    if any(word in text.lower() for word in TRIGGER_WORDS):
+        await event.reply(
+            f"Hey babe! Pics are a special treat 😘\n"
+            f"Please send $5 here: {PAYMENT_LINK}\n"
+            "After you pay, DM me your username and I'll send you the pics personally! 💖"
+        )
         return
 
-    if state["awaiting_payment"] and is_pic_request(text):
-        if not state["last_reminder"] or now - state["last_reminder"] > COOLDOWN:
-            state["last_reminder"] = now
-            save_states()
-            async with tg_client.action(chat_id, "typing"):
-                await asyncio.sleep(2)
-            await event.reply(
-                f"⏳ Still waiting for payment, babe 💕 Send proof when done.\n"
-                f"Payment link: {PAYMENT_LINK}\n"
-                f"Or wallet: {WALLET_ADDRESS}"
-            )
-        return
-
-    if is_pic_request(text):
-        if not state["last_payment_time"]:
-            state["awaiting_payment"] = True
-            state["last_reminder"] = now
-            save_states()
-            async with tg_client.action(chat_id, "typing"):
-                await asyncio.sleep(2)
-            await event.reply(
-                f"Hey baby! Pics are a special treat 😘\n"
-                f"Please send $5 here: {PAYMENT_LINK}\n"
-                f"Or to my wallet {WALLET_ADDRESS}\n"
-                f"After you pay, just send me proof and I'll send your pics 💖"
-            )
-            return
-        else:
-            state["last_payment_time"] = None
-            save_states()
-            await event.reply("🔥 Here’s your special treat...")
-            return
-
+    # Save message in history
     if chat_id not in chat_histories:
         chat_histories[chat_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     chat_histories[chat_id].append({"role": "user", "content": text})
-    trim_history(chat_id)  # ⬅️ Trim history before sending to OpenAI
 
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=chat_histories[chat_id],
+            messages=chat_histories[chat_id]
         )
         bot_reply = response.choices[0].message.content.strip()
-        chat_histories[chat_id].append({"role": "assistant", "content": bot_reply})
-        trim_history(chat_id)  # Keep trimmed after appending
 
-        async with tg_client.action(chat_id, "typing"):
-            await asyncio.sleep(len(bot_reply) * 0.1)
+        chat_histories[chat_id].append({"role": "assistant", "content": bot_reply})
+
+        # Typing simulation
+        async with tg_client.action(chat_id, 'typing'):
+            await asyncio.sleep(len(bot_reply) * 0.1)  # Delay based on length
 
         await event.reply(bot_reply)
 
     except Exception as e:
         await event.reply(f"⚠️ Error: {e}")
 
+
 async def main():
-    load_states()
     if not os.path.exists(f"{SESSION_FILE}.session"):
         print("📱 First-time login — enter your phone number & code once.")
         await tg_client.start()
@@ -202,5 +80,7 @@ async def main():
     print("🚀 SexyBot is now running on Telegram...")
     await tg_client.run_until_disconnected()
 
+
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
