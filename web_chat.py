@@ -20,7 +20,7 @@ tg_client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
 STATE_FILE = "user_states.json"
 
 chat_histories = {}
-user_states = {}  # user_id: {"awaiting_payment": bool, "last_payment_time": float, "last_reminder": float}
+user_states = {}
 
 SYSTEM_PROMPT = """
 You are a playful and friendly 23-year-old girl who sells exclusive content online.
@@ -30,13 +30,14 @@ Never break character.
 """
 
 TRIGGER_WORDS = ["pic", "photo", "selfie", "picture", "snap", "pics"]
-PAYMENT_WINDOW = 15 * 60  # 15 minutes to consider payment valid
-COOLDOWN = 60 * 60  # 1 hour cooldown between payment reminders
+PAYMENT_WINDOW = 15 * 60
+COOLDOWN = 60 * 60
 
 PAYMENT_KEYWORDS = ["paid", "payment", "proof", "sent", "transaction", "invoice", "transfer"]
 
 PAYMENT_LINK = "https://me.geegpay.africa/invoice/payment/RNMHLC3DT"
 WALLET_ADDRESS = "0xfE09418038481dF02dfe7B132cf567deDe27942C - USDT"
+
 TIP_KEYWORDS = [
     "tip", "tips", "donate", "donation", "gift", "spoil", "spoil you", 
     "send money", "give money", "buy you", "how much", "payment", "support"
@@ -56,51 +57,46 @@ TIP_ACCEPT_RESPONSES = [
     "Mmm… spoil me and I’ll make it worth every penny 😈 [YOUR_PAYMENT_LINK]"
 ]
 
+MAX_HISTORY_MESSAGES = 5  # Only keep the last 5 messages per chat
+
+def trim_history(chat_id):
+    """Keep only the last N messages + system prompt to reduce token usage."""
+    if chat_id in chat_histories:
+        system_prompt = chat_histories[chat_id][0]
+        recent_messages = chat_histories[chat_id][-MAX_HISTORY_MESSAGES:]
+        chat_histories[chat_id] = [system_prompt] + recent_messages
 
 def save_states():
     with open(STATE_FILE, "w") as f:
         json.dump(user_states, f)
-
 
 def load_states():
     global user_states
     if os.path.exists(STATE_FILE):
         with open(STATE_FILE, "r") as f:
             user_states = json.load(f)
-            # keys are strings, convert to int
             user_states = {int(k): v for k, v in user_states.items()}
     else:
         user_states = {}
-
 
 def is_pic_request(message):
     msg = message.lower()
     return any(word in msg for word in TRIGGER_WORDS)
 
-
 def is_payment_proof(message):
     msg = message.lower()
     return any(keyword in msg for keyword in PAYMENT_KEYWORDS) or bool(re.search(r"\b0x[a-fA-F0-9]{40}\b", msg))
 
-import random
-
 def handle_tip_logic(user_message):
     lower_msg = user_message.lower()
-
-    # If user talks about tipping/gifting
     if any(keyword in lower_msg for keyword in TIP_KEYWORDS):
         return random.choice(TIP_ACCEPT_RESPONSES)
-
-    # Randomly offer tips during normal chat
-    if random.random() < 0.05:  # 5% of messages
+    if random.random() < 0.05:
         return random.choice(TIP_OFFER_RESPONSES)
-
-    return None  # Let AI handle the rest
-
+    return None
 
 @tg_client.on(events.NewMessage(outgoing=True))
 async def handle_outgoing_message(event):
-    # You sent a pic/video to a user - unlock them immediately
     if event.photo or event.video:
         user_id = event.chat_id
         if user_id in user_states and user_states[user_id].get("awaiting_payment", False):
@@ -108,7 +104,6 @@ async def handle_outgoing_message(event):
             user_states[user_id]["last_payment_time"] = time.time()
             save_states()
             await tg_client.send_message(user_id, "💖 Enjoy, babe! You’re unlocked now 😉")
-
 
 @tg_client.on(events.NewMessage)
 async def handle_message(event):
@@ -130,11 +125,9 @@ async def handle_message(event):
 
     state = user_states[user_id]
 
-    # Clear expired payment (after PAYMENT_WINDOW)
     if state["last_payment_time"] and now - state["last_payment_time"] > PAYMENT_WINDOW:
         state["last_payment_time"] = None
 
-    # If user sent payment proof text
     if is_payment_proof(text):
         state["awaiting_payment"] = False
         state["last_payment_time"] = now
@@ -142,7 +135,6 @@ async def handle_message(event):
         await event.reply("💖 Payment confirmed! Ask me for your pic again 😉")
         return
 
-    # If user is awaiting payment and sends a trigger word, remind them (with cooldown)
     if state["awaiting_payment"] and is_pic_request(text):
         if not state["last_reminder"] or now - state["last_reminder"] > COOLDOWN:
             state["last_reminder"] = now
@@ -156,7 +148,6 @@ async def handle_message(event):
             )
         return
 
-    # If they ask for pics (trigger word) and not paid or awaiting payment
     if is_pic_request(text):
         if not state["last_payment_time"]:
             state["awaiting_payment"] = True
@@ -172,18 +163,16 @@ async def handle_message(event):
             )
             return
         else:
-            # User is paid and within PAYMENT_WINDOW, reset to allow pay per pic again
             state["last_payment_time"] = None
             save_states()
             await event.reply("🔥 Here’s your special treat...")
-            # TODO: send actual pic/media here
             return
 
-    # Normal AI replies
     if chat_id not in chat_histories:
         chat_histories[chat_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
     chat_histories[chat_id].append({"role": "user", "content": text})
+    trim_history(chat_id)  # ⬅️ Trim history before sending to OpenAI
 
     try:
         response = client.chat.completions.create(
@@ -192,6 +181,7 @@ async def handle_message(event):
         )
         bot_reply = response.choices[0].message.content.strip()
         chat_histories[chat_id].append({"role": "assistant", "content": bot_reply})
+        trim_history(chat_id)  # Keep trimmed after appending
 
         async with tg_client.action(chat_id, "typing"):
             await asyncio.sleep(len(bot_reply) * 0.1)
@@ -200,7 +190,6 @@ async def handle_message(event):
 
     except Exception as e:
         await event.reply(f"⚠️ Error: {e}")
-
 
 async def main():
     load_states()
@@ -213,8 +202,5 @@ async def main():
     print("🚀 SexyBot is now running on Telegram...")
     await tg_client.run_until_disconnected()
 
-
 if __name__ == "__main__":
     asyncio.run(main())
-
-
